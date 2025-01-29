@@ -9,6 +9,8 @@ import multiprocessing
 from bs4 import BeautifulSoup, NavigableString
 from bs4.element import Tag
 
+num_processes = 2
+text_repeat_times = 20
 
 # 字上符付き文字の表記形式変換用の辞書型配列
 x_to_circumflex = {'cx': 'ĉ', 'gx': 'ĝ', 'hx': 'ĥ', 'jx': 'ĵ', 'sx': 'ŝ', 'ux': 'ŭ','Cx': 'Ĉ', 'Gx': 'Ĝ', 'Hx': 'Ĥ', 'Jx': 'Ĵ', 'Sx': 'Ŝ', 'Ux': 'Ŭ'}
@@ -260,7 +262,7 @@ def create_replacements_list_for_localized_replacement(text, placeholders: List[
     return tmp_replacements_list_for_localized_string
 
 # multiprocessingのための関数群　テキストを行数によって設定プロセス数(num_processes)に等分割して、それぞれのプロセスで並列に置換処理を実行してから、再度分割したテキストを結合する。
-num_processes = 4
+
 import multiprocessing
 def process_segment(lines: List[str],
                     
@@ -373,7 +375,7 @@ with st.form(key='profile_form'):
     if submit_btn:
         if __name__ == '__main__':
             multiprocessing.set_start_method('spawn', force=True)
-            text1=parallel_process(text0*10)
+            text1=parallel_process(text0*text_repeat_times)
 
             # text1=orchestrate_comprehensive_esperanto_text_replacement(text0, format_type='HTML格式_Ruby文字_大小调整')
             
