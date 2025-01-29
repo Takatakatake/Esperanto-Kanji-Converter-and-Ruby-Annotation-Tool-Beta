@@ -10,7 +10,7 @@ from bs4 import BeautifulSoup, NavigableString
 from bs4.element import Tag
 
 num_processes = 2
-text_repeat_times = 20
+text_repeat_times = 5
 
 # 字上符付き文字の表記形式変換用の辞書型配列
 x_to_circumflex = {'cx': 'ĉ', 'gx': 'ĝ', 'hx': 'ĥ', 'jx': 'ĵ', 'sx': 'ŝ', 'ux': 'ŭ','Cx': 'Ĉ', 'Gx': 'Ĝ', 'Hx': 'Ĥ', 'Jx': 'Ĵ', 'Sx': 'Ŝ', 'Ux': 'Ŭ'}
