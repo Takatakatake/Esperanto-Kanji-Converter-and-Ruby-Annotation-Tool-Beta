@@ -6,6 +6,8 @@ import pandas as pd
 import json
 from typing import List, Dict, Tuple, Optional  # List, Dict, Tuple, (Optional) など型ヒントを一括でインポート
 import multiprocessing
+from bs4 import BeautifulSoup, NavigableString
+from bs4.element import Tag
 
 
 # 字上符付き文字の表記形式変換用の辞書型配列
@@ -17,19 +19,85 @@ hat_to_circumflex = {'c^': 'ĉ', 'g^': 'ĝ', 'h^': 'ĥ', 'j^': 'ĵ', 's^': 'ŝ',
 circumflex_to_hat = {'ĉ': 'c^', 'ĝ': 'g^', 'ĥ': 'h^', 'ĵ': 'j^', 'ŝ': 's^', 'ŭ': 'u^','Ĉ': 'C^', 'Ĝ': 'G^', 'Ĥ': 'H^', 'Ĵ': 'J^', 'Ŝ': 'S^', 'Ŭ': 'U^'}
 
 # 字上符付き文字の表記形式変換用の関数
-def replace_esperanto_chars(text,letter_dictionary):
-    for esperanto_char, x_char in letter_dictionary.items():
-        text = text.replace(esperanto_char, x_char)
+def replace_esperanto_chars(text, char_dict: Dict[str, str]) -> str:
+    for original_char, converted_char in char_dict.items():
+        text = text.replace(original_char, converted_char)
     return text
 
-def unify_halfwidth_spaces(text):
+def convert_to_circumflex(text: str) -> str:
+    """テキストを字上符形式（ĉ, ĝ, ĥ, ĵ, ŝ, ŭなど）に統一します。"""
+    text = replace_esperanto_chars(text, hat_to_circumflex)# 2. ^表記 (c^, g^...) → ĉ, ĝ... に変換
+    text = replace_esperanto_chars(text, x_to_circumflex)# 3. x表記 (cx, gx...) → ĉ, ĝ... に変換
+    return text
+
+def unify_halfwidth_spaces(text: str) -> str:
     """全角スペース(U+3000)は変更せず、半角スペースと視覚的に区別がつきにくい空白文字を
         ASCII半角スペース(U+0020)に統一する。連続した空白は1文字ずつ置換する。"""
     pattern = r"[\u00A0\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A]"# 対象とする空白文字をまとめたパターン
-    return re.sub(pattern, " ", text)# マッチした部分を半角スペースに置換
+    return re.sub(pattern, " ", text)# マッチした部分を標準的な半角スペースに置換
+
+# ブラウザで表示した際の文字の高さを揃えるために、HTML形式の都合上、rubyタグがかかっていないメインテキストについても、<ruby>〜</ruby>で囲む必要が生じた。
+# BeautifulSoup4を使用して実装することにした。streamlit cloud でもrequirements.txtに書き込んで、インストールすれば使用できることを確認。
+def wrap_text_with_ruby(html_string: str, chunk_size: int = 10) -> str:
+    soup = BeautifulSoup(html_string, 'lxml')  # 'html.parser' より高速で、streamlitにもインストールできた。
+
+    def process_element(element: Tag, in_ruby: bool = False) -> None:
+        # 現在の要素が <ruby> または <rt> なら、その下はすべて「既にruby内」
+        if element.name in ['ruby', 'rt']:
+            in_ruby = True
+
+        for child in list(element.children):
+            if isinstance(child, NavigableString):
+                text = str(child)
+                # 空白や改行のみの場合はスキップ
+                if not text.strip():
+                    continue
+
+                # 親階層が <ruby> か、あるいは現在 <ruby>/<rt> の内側なら処理スキップ
+                if in_ruby:
+                    continue
+
+                # テキストを chunk_size ごとに分割
+                chunks = [text[i : i + chunk_size] for i in range(0, len(text), chunk_size)]
+
+                new_tags = []
+                for chunk in chunks:
+                    chunk = chunk.replace(" ", "&nbsp;").replace("　", "&nbsp;&nbsp;")
+                    ruby_tag = soup.new_tag('ruby')
+                    ruby_tag.string = chunk
+                    new_tags.append(ruby_tag)
+
+                child.replace_with(*new_tags)
+
+            elif child.name and child.name.lower() in ['script', 'style']:
+                # <script> / <style> 内は処理しない
+                continue
+            else:
+                # 子要素を再帰的に処理。in_rubyフラグを引き継ぐ
+                process_element(child, in_ruby)
+
+    # メインの処理を呼び出す
+    process_element(soup, in_ruby=False)
+
+    # <html> と <body> を除去
+    if soup.html:
+        soup.html.unwrap()
+    if soup.body:
+        soup.body.unwrap()
+        # 先頭の <p> タグと末尾の </p> タグを削除
+    if soup.contents[0].name == "p":  # 先頭の <p>
+        first_p = soup.contents[0]
+        first_p.unwrap()
+    if soup.contents[-1].name == "p":  # 末尾の </p>
+        last_p = soup.contents[-1]
+        last_p.unwrap()
+    # 変換後のHTML文字列を取得し、&amp;nbsp;を&amp;nbsp;に置換
+    final_str = str(soup).replace("&amp;nbsp;", "&nbsp;")
+
+    return final_str
 
 # 置換に用いる関数。正規表現、C++など様々な形式の置換を試したが、pythonでplaceholder(占位符)を用いる形式の置換が、最も処理が高速であった。(しかも大変シンプルでわかりやすい。)
-def safe_replace(text, replacements):
+def safe_replace(text: str, replacements: List[Tuple[str, str, str]]) -> str:# Tupleは狭義のList
     valid_replacements = {}
     # 置換対象(old)をplaceholderに一時的に置換
     for old, new, placeholder in replacements:
@@ -41,43 +109,98 @@ def safe_replace(text, replacements):
         text = text.replace(placeholder, new)
     return text
 
+def import_placeholders(filename: str) -> List[str]:# placeholder(占位符)をインポートするためだけの関数
+    with open(filename, 'r') as file:
+        placeholders = [line.strip() for line in file if line.strip()]
+    return placeholders
+
+with open("./Appの运行に使用する各类文件/最终的な替换用リスト(列表)(合并3个JSON文件).json", 'r', encoding='utf-8') as g:
+    combined_data = json.load(g)
+    replacements_final_list = combined_data.get("全域替换用のリスト(列表)型配列(replacements_final_list)", None)
+    replacements_list_for_localized_string = combined_data.get("局部文字替换用のリスト(列表)型配列(replacements_list_for_localized_string)", None)
+    replacements_list_for_2char = combined_data.get("二文字词根替换用のリスト(列表)型配列(replacements_list_for_2char)", None)
+placeholders_for_skipping_replacements = import_placeholders('./Appの运行に使用する各类文件/占位符(placeholders)_%1854%-%4934%_文字列替换skip用.txt')
+placeholders_for_localized_replacement = import_placeholders('./Appの运行に使用する各类文件/占位符(placeholders)_@5134@-@9728@_局部文字列替换结果捕捉用.txt')
+
+format_type = "HTML格式_Ruby文字_大小调整"
+
 # プレースホルダーを用いた文字列(漢字)置換関数
-def enhanced_safe_replace_func_expanded_for_2char_roots(text, replacements, replacements_list_for_2char):
+def orchestrate_comprehensive_esperanto_text_replacement(
+    text, 
+    placeholders_for_skipping_replacements: List[str] = placeholders_for_skipping_replacements, 
+    replacements_list_for_localized_string: List[Tuple[str, str, str]] = replacements_list_for_localized_string, 
+    placeholders_for_localized_replacement: List[str] = placeholders_for_localized_replacement, 
+    replacements_final_list: List[Tuple[str, str, str]] = replacements_final_list, 
+    replacements_list_for_2char: List[Tuple[str, str, str]] = replacements_list_for_2char, 
+    format_type: str = format_type
+    )-> str:
+    # 1, 2) 半角スペースを標準化し、エスペラント文字表現を字上符形式に統一
+    text = unify_halfwidth_spaces(text)# 半角スペースと視覚的に区別がつきにくい特殊な空白文字を標準的なASCII半角スペース(U+0020)に置換する。 ただし、全角スペース(U+3000)は置換対象に含めていない。
+    text = convert_to_circumflex(text)# テキストを字上符形式（ĉ, ĝ, ĥ, ĵ, ŝ, ŭなど）に統一。
+    # 3) '%'で囲まれた置換禁止部分を保護(placeholderに置換)
+    replacements_list_for_intact_parts = create_replacements_list_for_intact_parts(text, placeholders_for_skipping_replacements)
+    sorted_replacements_list_for_intact_parts = sorted(replacements_list_for_intact_parts, key=lambda x: len(x[0]), reverse=True)
+    for original, place_holder_ in sorted_replacements_list_for_intact_parts:
+        text = text.replace(original, place_holder_)# いいのか→多分大丈夫。
+    # 4) '@'で囲まれた箇所を局所的に置換・保存した後、placeholderに置換
+    tmp_replacements_list_for_localized_string_2 = create_replacements_list_for_localized_replacement(text, placeholders_for_localized_replacement, replacements_list_for_localized_string)
+    sorted_replacements_list_for_localized_string = sorted(tmp_replacements_list_for_localized_string_2, key=lambda x: len(x[0]), reverse=True)
+    for original, place_holder_, replaced_original in sorted_replacements_list_for_localized_string:
+        text = text.replace(original, place_holder_)
+    # 5) メインとなる置換対象文字列をplaceholderへ置換
     valid_replacements = {}
-    for old, new, placeholder in replacements:
+    for old, new, placeholder in replacements_final_list:
         if old in text:
             text = text.replace(old, placeholder)# 置換前の文字列を一旦プレースホルダーに置き換える。
             valid_replacements[placeholder] = new
-# ここで、2文字の語根の文字列(漢字)置換を実施することとした(202412の変更)。  &%
+    # 6)ここで、2文字の語根の文字列(漢字)置換を(2回)実施することとした。Placeholderに隣接した2文字語根については置換可能と考えたためである。(202412の変更)。
     valid_replacements_for_2char_roots = {}
     for old, new, placeholder in replacements_list_for_2char:
         if old in text:
             text = text.replace(old, placeholder)
             valid_replacements_for_2char_roots[placeholder] = new
+    # 2周目用に別のplaceholderを割り当てる
     valid_replacements_for_2char_roots_2 = {}
     for old, new, placeholder in replacements_list_for_2char:
         if old in text:
             place_holder_second="!"+placeholder+"!"# 2回目のplace_holderは少し変更を加えたほうが良いはず。
             text = text.replace(old, place_holder_second)
             valid_replacements_for_2char_roots_2[place_holder_second] = new
-    for place_holder_second, new in reversed(valid_replacements_for_2char_roots_2.items()):# ここで、reverseにすることがポイント。
+
+    # print(text)# ⇑ここまでがplaceholderによる置換作業。以降⇓は、placeholderを置換後の文字列に置き換える作業。
+
+    # 7) ここからplaceholderを最終的な文字列に復元していく
+    for place_holder_second, new in reversed(valid_replacements_for_2char_roots_2.items()):# ここで、reverseにすることがポイント。 但し、完璧な対策ではない？
         text = text.replace(place_holder_second, new)# プレースホルダーを置換後の文字列に置き換える。
     for placeholder, new in reversed(valid_replacements_for_2char_roots.items()):
         text = text.replace(placeholder, new)# プレースホルダーを置換後の文字列に置き換える。
     for placeholder, new in valid_replacements.items():
         text = text.replace(placeholder, new)
+    # 7) 局所置換箇所・置換禁止箇所も復元
+    for original, place_holder_, replaced_original in sorted_replacements_list_for_localized_string:
+        text = text.replace(place_holder_, replaced_original.replace("@",""))
+    for original, place_holder_ in sorted_replacements_list_for_intact_parts:
+        text = text.replace(place_holder_, original.replace("%",""))
+    # 8) 必要に応じてHTML用の整形を実施
+    if "HTML" in format_type:
+        text = text.replace("\n", "<br>\n")
+        text = wrap_text_with_ruby(text, chunk_size=10)
+        text = re.sub(r"   ", "&nbsp;&nbsp;&nbsp;", text)  # 3つ以上の空白を変換
+        text = re.sub(r"  ", "&nbsp;&nbsp;", text)  # 2つ以上の空白を変換
+    
     return text
 
-
 # '%'で囲まれた50文字以内の部分を同定し、文字列(漢字)置換せずにそのまま保存しておくための関数群
-def find_strings_in_text(text):
+# 関数外（モジュールのグローバルスコープ）でコンパイル
+PERCENT_PATTERN = re.compile(r'%(.{1,50}?)%')
+def find_strings_in_text(text: str) -> List[str]:
     # 正規表現パターンを定義
-    pattern = re.compile(r'%(.{1,50}?)%')# re.DOTALLで、任意の文字列に"改行"も含むようにできる。(今はしない。)
+    PERCENT_PATTERN = re.compile(r'%(.{1,50}?)%')# re.DOTALLで、任意の文字列に"改行"も含むようにできる。(今はしない。)
     matches = []
     used_indices = set()
 
     # 正規表現のマッチを見つける
-    for match in pattern.finditer(text):
+    for match in PERCENT_PATTERN.finditer(text):
         start, end = match.span()
         # 重複する%を避けるためにインデックスをチェック
         if start not in used_indices and end-2 not in used_indices:  # end-2 because of double %
@@ -86,7 +209,7 @@ def find_strings_in_text(text):
             used_indices.update(range(start, end))
     return matches
 
-def create_replacements_list_for_intact_parts(text, placeholders):
+def create_replacements_list_for_intact_parts(text: str, placeholders: List[str]) -> List[Tuple[str, str]]:
     # テキストから%で囲まれた部分を抽出
     matches = find_strings_in_text(text)
     replacements_list_for_intact_parts = []
@@ -98,20 +221,18 @@ def create_replacements_list_for_intact_parts(text, placeholders):
             break  # プレースホルダーが足りなくなった場合は終了
     return replacements_list_for_intact_parts
 
-def import_placeholders(filename):# placeholder(占位符)をインポートするためだけの関数
-    with open(filename, 'r') as file:
-        placeholders = [line.strip() for line in file if line.strip()]
-    return placeholders
 
-# '@'で囲まれた18文字(PEJVOに収録されている最長語根の文字数)以内の部分を同定し、局所的な文字列(漢字)置換を実行するための関数群
-def find_strings_in_text_for_localized_replacement(text):
+
+# 関数外（モジュールのグローバルスコープ）でコンパイル
+AT_PATTERN = re.compile(r'@(.{1,18}?)@')
+def find_strings_in_text_for_localized_replacement(text: str) -> List[str]:
     # 正規表現パターンを定義
-    pattern = re.compile(r'@(.{1,18}?)@')# re.DOTALLで、任意の文字列に"改行"も含むようにできる。(今はしない。)
+    AT_PATTERN = re.compile(r'@(.{1,18}?)@')# re.DOTALLで、任意の文字列に"改行"も含むようにできる。(今はしない。)
     matches = []
     used_indices = set()
 
     # 正規表現のマッチを見つける
-    for match in pattern.finditer(text):
+    for match in AT_PATTERN.finditer(text):
         start, end = match.span()
         # 重複する@を避けるためにインデックスをチェック
         if start not in used_indices and end-2 not in used_indices:  # end-2 because of double @
@@ -119,8 +240,12 @@ def find_strings_in_text_for_localized_replacement(text):
             # インデックスを使用済みセットに追加
             used_indices.update(range(start, end))
     return matches
-
-def create_replacements_list_for_localized_replacement(text, placeholders, replacements_list_for_localized_string):
+def import_placeholders(filename: str) -> List[str]:
+    with open(filename, 'r') as file:
+        placeholders = [line.strip() for line in file if line.strip()]
+    return placeholders
+def create_replacements_list_for_localized_replacement(text, placeholders: List[str], 
+                                                       replacements_list_for_localized_string: List[Tuple[str, str, str]] = replacements_list_for_localized_string)-> List[List[str]]:
     # テキストから@で囲まれた部分を抽出
     matches = find_strings_in_text_for_localized_replacement(text)
     tmp_replacements_list_for_localized_string = []
@@ -134,8 +259,8 @@ def create_replacements_list_for_localized_replacement(text, placeholders, repla
             break  # プレースホルダーが足りなくなった場合は終了
     return tmp_replacements_list_for_localized_string
 
-placeholders_for_skipping_replacements = import_placeholders('./Appの运行に使用する各类文件/占位符(placeholders)_%1854%-%4934%_文字列替换skip用.txt')
-placeholders_for_localized_replacement = import_placeholders('./Appの运行に使用する各类文件/占位符(placeholders)_@5134@-@9728@_局部文字列替换结果捕捉用.txt')
+
+
 
 st.title("エスペラント文を漢字置換したり、HTML形式の訳ルビを振ったりする")
 
@@ -206,78 +331,102 @@ with st.form(key='profile_form'):
     submit_btn = st.form_submit_button('送信')
     cancel_btn = st.form_submit_button('キャンセル')
     if submit_btn:
-        text1 = unify_halfwidth_spaces(text0)# 半角スペースと視覚的に区別がつきにくい特殊な空白文字を標準的なASCII半角スペース(U+0020)に置換する。 ただし、全角スペース(U+3000)は置換対象に含めていない。
-        text1=replace_esperanto_chars(text1,hat_to_circumflex)
-        text1=replace_esperanto_chars(text1,x_to_circumflex)
-
-        replacements_list_for_intact_parts = create_replacements_list_for_intact_parts(text1, placeholders_for_skipping_replacements)
-        sorted_replacements_list_for_intact_parts = sorted(replacements_list_for_intact_parts, key=lambda x: len(x[0]), reverse=True)
-        for original, place_holder_ in sorted_replacements_list_for_intact_parts:
-            text1 = text1.replace(original, place_holder_)
-
-        tmp_replacements_list_for_localized_string_2 = create_replacements_list_for_localized_replacement(text1, placeholders_for_localized_replacement, replacements_list_for_localized_string)
-        sorted_replacements_list_for_localized_string = sorted(tmp_replacements_list_for_localized_string_2, key=lambda x: len(x[0]), reverse=True)
-        for original, place_holder_, replaced_original in sorted_replacements_list_for_localized_string:
-            text1 = text1.replace(original, place_holder_)
-
-        text1=enhanced_safe_replace_func_expanded_for_2char_roots(text1, replacements_final_list, replacements_list_for_2char)
-
-        for original, place_holder_, replaced_original in sorted_replacements_list_for_localized_string:
-            text1 = text1.replace(place_holder_, replaced_original.replace("@",""))
-
-        for original, place_holder_ in sorted_replacements_list_for_intact_parts:
-            text1 = text1.replace(place_holder_, original.replace("%",""))
-
-        if letter_type == '上付き文字':
-            text1 = replace_esperanto_chars(text1, x_to_circumflex)
-        elif letter_type == '^ 形式':
-            text1 = replace_esperanto_chars(text1, x_to_hat)
+        text1=orchestrate_comprehensive_esperanto_text_replacement(text0, format_type='HTML格式_Ruby文字_大小调整')
         
-        if format_type in ('HTML格式_Ruby文字_大小调整','HTML格式_Ruby文字_大小调整_汉字替换','HTML格式','HTML格式_汉字替换'):
-            # 改行を <br> に変換
-            text1 = text1.replace("\n", "<br>\n")
-            # 連続する空白を &nbsp; に変換
-            text1 = re.sub(r"   ", "&nbsp;&nbsp;&nbsp;", text1)  # 3つ以上の空白を変換
-            text1 = re.sub(r"  ", "&nbsp;&nbsp;", text1)  # 2つ以上の空白を変換
         if format_type in ('HTML格式_Ruby文字_大小调整','HTML格式_Ruby文字_大小调整_汉字替换'):
             # html形式におけるルビサイズの変更形式
-            ruby_style_head="""<style>
-        .text-S_S_S {font-size: 12px;}
-        .text-M_M_M {font-size: 16px;}
-        .text-L_L_L {font-size: 20px;}
-        .text-X_X_X {font-size: 24px;}
-        .ruby-XS_S_S { font-size: 0.30em; } /* Extra Small */
-        .ruby-S_S_S  { font-size: 0.40em; } /* Small */
-        .ruby-M_M_M  { font-size: 0.50em; } /* Medium */
-        .ruby-L_L_L  { font-size: 0.60em; } /* Large */
-        .ruby-XL_L_L { font-size: 0.70em; } /* Extra Large */
-        .ruby-XXL_L_L { font-size: 0.80em; } /* Double Extra Large */
+            ruby_style_head="""<!DOCTYPE html>
+        <html lang="ja">
+        <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>ほとんどの環境で動作するルビ表示</title>
+        <style>
 
-        ruby {
-        display: inline-block;
-        position: relative; /* 相対位置 */
-        white-space: nowrap; /* 改行防止 */
-        line-height: 1.9;
-        }
-        rt {
-        position: absolute;
-        top: -0.75em;
-        left: 50%; /* 左端を親要素の中央に合わせる */
-        transform: translateX(-50%); /* 中央に揃える */
-        line-height: 2.1;
-        color: blue; 
-        }
-        rt.ruby-XS_S_S { top: -0.20em; } /* ルビサイズに応じて、ルビを表示する高さを変える。 */
-        rt.ruby-S_S_S  { top: -0.30em; }
-        rt.ruby-M_M_M  { top: -0.40em; }
-        rt.ruby-L_L_L  { top: -0.50em; }
-        rt.ruby-XL_L_L { top: -0.65em; }
-        rt.ruby-XXL_L_L{ top: -0.80em; }
+            :root {
+            --ruby-color: blue;
+            --ruby-font-size: 50%;
+            }
+
+            .text-S_S { font-size: 12px; }
+            .text-M_M {
+            font-size: 16px; 
+            font-family: Arial, sans-serif;
+            line-height: 1.6 !important; 
+            display: block; /* ブロック要素として扱う */
+            position: relative;
+            }
+            .text-L_L { font-size: 20px; }
+            .text-X_X { font-size: 24px; }
+
+            /* ▼ ルビ（フレックスでルビを上に表示） */
+            ruby {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            vertical-align: top !important;
+            line-height: 1.2 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            }
+
+            /* ▼ ルビサイズクラス（例） */
+            .ruby-XXXS_S { --ruby-font-size: 30%; }
+            .ruby-XXS_S { --ruby-font-size: 30%; }
+            .ruby-XS_S  { --ruby-font-size: 30%; }
+            .ruby-S_S   { --ruby-font-size: 40%; }
+            .ruby-M_M   { --ruby-font-size: 50%; }
+            .ruby-L_L   { --ruby-font-size: 60%; }
+            .ruby-XL_L  { --ruby-font-size: 70%; }
+            .ruby-XXL_L { --ruby-font-size: 80%; }
+
+            /* ▼ 追加マイナス余白（ルビサイズ別に上書き） */
+            rt {
+            display: block !important;
+            font-size: var(--ruby-font-size);
+            color: var(--ruby-color);
+            line-height: 1.05;/*ルビを改行するケースにおけるルビの行間*/
+            text-align: center;
+            /* margin-top: 0.2em !important;   
+            transform: translateY(0.4em) !important; */
+            }
+            rt.ruby-XXXS_S {
+            margin-top: -0em !important;/*結局ここは0が一番良かった。 */
+            transform: translateY(-6.6em) !important;/* ルビの高さ位置はここで調節する。 */
+            }    
+            rt.ruby-XXS_S {
+            margin-top: -0em !important;/*結局ここは0が一番良かった。 */
+            transform: translateY(-5.6em) !important;/* ルビの高さ位置はここで調節する。 */
+            }
+            rt.ruby-XS_S {
+            transform: translateY(-4.6em) !important;
+            }
+            rt.ruby-S_S {
+            transform: translateY(-3.7em) !important;
+            }
+            rt.ruby-M_M {
+            transform: translateY(-3.1em) !important;
+            }
+            rt.ruby-L_L {
+            transform: translateY(-2.8em) !important;
+            }
+            rt.ruby-XL_L {
+            transform: translateY(-2.5em) !important;
+            }
+            rt.ruby-XXL_L {
+            transform: translateY(-2.3em) !important;
+            }
 
         </style>
-        <p class="text-M_M_M">
+        </head>
+        <body>
+        <p class="text-M_M">
         """
-            ruby_style_tail = "<br>\n</p>"
+            ruby_style_tail = """  </p>
+
+        </body>
+        </html>"""
+
 
         elif format_type in ('HTML格式','HTML格式_汉字替换'):
             # ルビのスタイルは最小限
@@ -292,7 +441,7 @@ with st.form(key='profile_form'):
             ruby_style_head=""
             ruby_style_tail=""
 
-        text1=ruby_style_head+text1+ruby_style_tail
+        text1 = ruby_style_head+text1+ruby_style_tail
         st.text_area("文字列(漢字)置換後のテキストのプレビュー", text1, height=300)
 
 if text1:
