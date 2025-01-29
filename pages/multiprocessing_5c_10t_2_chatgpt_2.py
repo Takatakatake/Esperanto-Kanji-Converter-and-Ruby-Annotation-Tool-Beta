@@ -12,7 +12,7 @@ import multiprocessing
 
 # ★★★ ここが肝心 ★★★
 #   先ほど作成した esp_mod.py (同一フォルダにあると仮定) から「並列処理関数 parallel_process」をインポート
-from esp_mod import (
+from esp_mod_chatgpt import (
     x_to_circumflex,
     circumflex_to_x,
     x_to_hat,

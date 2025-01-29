@@ -165,7 +165,7 @@ def find_strings_in_text_for_localized_replacement(text: str) -> List[str]:
 
 
 def create_replacements_list_for_localized_replacement(text, placeholders: List[str], 
-                                                       replacements_list_for_localized_string: List[Tuple[str, str, str]] = replacements_list_for_localized_string)-> List[List[str]]:
+                                                       replacements_list_for_localized_string: List[Tuple[str, str, str]])-> List[List[str]]:
     # テキストから@で囲まれた部分を抽出
     matches = find_strings_in_text_for_localized_replacement(text)
     tmp_replacements_list_for_localized_string = []
@@ -266,22 +266,43 @@ def process_segment(lines: List[str],
 #     placeholders_for_localized_replacement: List[str] = placeholders_for_localized_replacement, replacements_final_list: List[Tuple[str, str, str]] = replacements_final_list, 
 #     replacements_list_for_2char: List[Tuple[str, str, str]] = replacements_list_for_2char, format_type: str = format_type)-> str:
 
-def parallel_process(text: str, num_processes: int, 
-
-    placeholders_for_skipping_replacements: List[str], replacements_list_for_localized_string: List[Tuple[str, str, str]], 
-    placeholders_for_localized_replacement: List[str], replacements_final_list: List[Tuple[str, str, str]], 
-    replacements_list_for_2char: List[Tuple[str, str, str]], format_type: str ) -> str:# orchestrate_comprehensive_esperanto_text_replacementの引数をそのまま持って来た。
-
-    # テキストを行で分割
+def parallel_process(
+    text: str,
+    num_processes: int,
+    placeholders_for_skipping_replacements: List[str],
+    replacements_list_for_localized_string: List[Tuple[str, str, str]],
+    placeholders_for_localized_replacement: List[str],
+    replacements_final_list: List[Tuple[str, str, str]],
+    replacements_list_for_2char: List[Tuple[str, str, str]],
+    format_type: str
+) -> str:
+    # 1) テキストを行分割
     lines = text.split('\n')
     num_lines = len(lines)
-    lines_per_process = num_lines // num_processes
-    # 各プロセスに割り当てる行のリストを決定
-    ranges = [(i * lines_per_process, (i + 1) * lines_per_process) for i in range(num_processes)]
-    ranges[-1] = (ranges[-1][0], num_lines)  # 最後のプロセスが残り全てを処理
-    with multiprocessing.Pool(processes=num_processes) as pool:
-        # 並列処理を実行
-        results = pool.starmap(process_segment, [(lines[start:end],) for start, end in ranges])
-    # 結果を結合
-    return '\n'.join(result for result in results)
+    lines_per_process = max(num_lines // num_processes, 1)
 
+    # 2) 割り当て範囲を作成
+    ranges = [(i * lines_per_process, (i + 1) * lines_per_process) for i in range(num_processes)]
+    # 最後のプロセスに残りすべてを割り当て
+    ranges[-1] = (ranges[-1][0], num_lines)
+
+    # 3) プロセスプールを作り、starmap
+    with multiprocessing.Pool(processes=num_processes) as pool:
+        results = pool.starmap(
+            process_segment,
+            [
+                (
+                    lines[start:end],
+                    placeholders_for_skipping_replacements,
+                    replacements_list_for_localized_string,
+                    placeholders_for_localized_replacement,
+                    replacements_final_list,
+                    replacements_list_for_2char,
+                    format_type
+                )
+                for (start, end) in ranges
+            ]
+        )
+
+    # 4) 結果の連結
+    return '\n'.join(results)
