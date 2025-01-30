@@ -142,12 +142,6 @@ with st.form(key='profile_form'):
             replacements_list_for_2char=replacements_list_for_2char,
             format_type=format_type
         )
-        if letter_type == '上标字符':
-            processed_text = replace_esperanto_chars(processed_text, x_to_circumflex)
-            processed_text = replace_esperanto_chars(processed_text, hat_to_circumflex)
-        elif letter_type == '^形式':
-            processed_text = replace_esperanto_chars(processed_text, x_to_hat)
-            processed_text = replace_esperanto_chars(processed_text, circumflex_to_hat)
                     
         if format_type in ('HTML格式_Ruby文字_大小调整','HTML格式_Ruby文字_大小调整_汉字替换'):
             # html形式におけるルビサイズの変更形式
