@@ -13,7 +13,7 @@ import multiprocessing
 # ★★★ ここが肝心 ★★★
 #   同一フォルダにある esp_mod.py から、
 #   全ての関数・辞書をまとめてインポートする例
-from esp_text_replace_modules import (
+from esp_text_replacement_module import (
     x_to_circumflex,
     circumflex_to_x,
     x_to_hat,

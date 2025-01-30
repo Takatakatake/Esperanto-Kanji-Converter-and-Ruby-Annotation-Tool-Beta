@@ -1,5 +1,16 @@
-# esp_text_replace_modules.py
-# ----------
+"""
+esp_text_replacement_module.py
+
+このモジュールは「エスペラント文章の文字列(漢字)置換」を包括的に扱うツール集です。
+主な機能：
+1. エスペラント独自の文字形式（ĉ, ĝなど）への変換 → convert_to_circumflex
+2. 特殊な半角スペースの統一（ASCIIスペースに） → unify_halfwidth_spaces
+3. HTMLルビ（<ruby>タグ）付与 → wrap_text_with_ruby
+4. %や@で囲まれたテキストのスキップ・局所変換 → (create_replacements_list_for_...)
+5. 大域的なプレースホルダー置換 → safe_replace
+6. それらをまとめて実行する複合置換関数 → orchestrate_comprehensive_esperanto_text_replacement
+7. multiprocessing を用いた行単位の並列実行 → parallel_process / process_segment
+"""
 # Pythonファイル単独でモジュールとして扱う想定。トップレベルに各関数を定義しておく。
 
 import re
@@ -205,6 +216,31 @@ def orchestrate_comprehensive_esperanto_text_replacement(
     replacements_list_for_2char: List[Tuple[str, str, str]] , 
     format_type: str 
     )-> str:
+    """
+    複数の変換ルールに従ってエスペラント文を文字列(漢字)置換するメイン関数。
+
+    ステップ:
+      1) unify_halfwidth_spaces(text)     : 特殊な空白を半角スペースへ
+      2) convert_to_circumflex(text)      : ĉ, ĝ, ĥ, ĵ, ŝ, ŭ への統一
+      3) %...% で囲まれた部分を置換スキップ (placeholders_for_skipping_replacements で保護)
+      4) @...@ で囲まれた部分を局所置換 (replacements_list_for_localized_string)
+      5) 大域置換 (replacements_final_list)
+      6) 二文字語根の置換を2回実施 (replacements_list_for_2char)
+      7) プレースホルダーの復元
+      8) もし format_type に "HTML" が含まれるなら、wrap_text_with_ruby(...) 等でHTML整形
+
+    Args:
+        text: 変換対象のエスペラント文
+        placeholders_for_skipping_replacements:  %...% 用のプレースホルダー一覧
+        replacements_list_for_localized_string:  @...@ 用の置換ルール (old, new, placeholder)
+        placeholders_for_localized_replacement:  @...@ 用のプレースホルダー一覧
+        replacements_final_list:                 大域置換用の (old, new, placeholder) のリスト
+        replacements_list_for_2char:             2文字語根用の (old, new, placeholder) リスト
+        format_type:  "HTML" が含まれているとHTMLルビ化などの処理を行う
+
+    Returns:
+        置換後のテキスト（HTML形式の場合もある）
+    """
 
     # 1, 2) 半角スペースを標準化し、エスペラント文字表現を字上符形式に統一
     text = unify_halfwidth_spaces(text)# 半角スペースと視覚的に区別がつきにくい特殊な空白文字を標準的なASCII半角スペース(U+0020)に置換する。 ただし、全角スペース(U+3000)は置換対象に含めていない。
@@ -292,6 +328,22 @@ def parallel_process(text: str, num_processes: int ,
     num_lines = len(lines)
     if num_processes < 1:
         num_processes = 1
+
+    # 行数が 0または1 の場合は単純に処理して返す (エラー回避の安全策)
+    # （text.split('\n')で空でも [""] になるため num_lines=1 になるケースが多いです）
+    if num_lines <= 1:
+        # 並列化の意味がほぼないので、そのまま処理
+        return process_segment(
+            lines, 
+            placeholders_for_skipping_replacements,
+            replacements_list_for_localized_string,
+            placeholders_for_localized_replacement,
+            replacements_final_list,
+            replacements_list_for_2char,
+            format_type
+        )
+
+    # 通常ケース: 行数が2以上
     lines_per_process = max(num_lines // num_processes, 1)
     # 各プロセスに割り当てる行のリストを決定
     ranges = [(i * lines_per_process, (i + 1) * lines_per_process) for i in range(num_processes)]
