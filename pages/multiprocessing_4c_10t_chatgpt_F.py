@@ -121,7 +121,7 @@ num_processes,text_repeat_times = 4, 10
 processed_text = ""
 
 with st.form(key='profile_form'):
-    letter_type = st.radio('出力文字形式', ('上付き文字', 'x 形式', '^ 形式'))
+    letter_type = st.radio('出力文字形式', ('上付き文字', 'x 形式', '^形式'))
     text0 = st.text_area("エスペラントの文章を入力してください", height=150)
 
     submit_btn = st.form_submit_button('送信')
@@ -142,7 +142,7 @@ with st.form(key='profile_form'):
             replacements_list_for_2char=replacements_list_for_2char,
             format_type=format_type
         )
-        if letter_type == '上标字符':
+        if letter_type == '上付き文字':
             processed_text = replace_esperanto_chars(processed_text, x_to_circumflex)
             processed_text = replace_esperanto_chars(processed_text, hat_to_circumflex)
         elif letter_type == '^形式':
