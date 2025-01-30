@@ -96,8 +96,8 @@ placeholders_for_localized_replacement: List[str] = import_placeholders(
 # 3) 設定パラメータ (UI) - 高度な設定
 st.subheader("高度な設定 (並列処理やテキスト複製回数など)")
 with st.expander("詳細設定を開く"):
-    use_parallel = st.checkbox("並列処理を使う (テキストが多い場合に高速化)", value=True)
-    num_processes = st.number_input("同時プロセス数 (CPUコア数や環境による)", min_value=1, max_value=8, value=1, step=1)
+    use_parallel = st.checkbox("並列処理を使う (テキストが多い場合に高速化)", value=False)
+    num_processes = st.number_input("同時プロセス数 (CPUコア数や環境による)", min_value=2, max_value=8, value=4, step=1)
     text_repeat_times = st.slider("テキストの複製回数 (テスト用)", min_value=1, max_value=10, value=1)
 
 st.write("---")
