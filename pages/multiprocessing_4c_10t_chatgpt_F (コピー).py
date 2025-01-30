@@ -1,6 +1,6 @@
-# multiprocessing_5c_10t_2_chatgpt.py
+# streamlit_app_expanded.py
 # ------------------------------------
-# メインの Streamlit アプリ (サンプル実装)
+# メインの Streamlit アプリ (機能拡充版サンプル実装)
 
 import streamlit as st
 import re
@@ -11,7 +11,7 @@ from typing import List, Dict, Tuple, Optional
 import multiprocessing
 
 # ★★★ ここが肝心 ★★★
-#   同一フォルダにある esp_mod.py から、
+#   同一フォルダにある esp_text_replacement_module.py から、
 #   全ての関数・辞書をまとめてインポートする例
 from esp_text_replacement_module import (
     x_to_circumflex,
@@ -38,14 +38,14 @@ from esp_text_replacement_module import (
     parallel_process
 )
 
-
 # ▼ Windows/Macでの PicklingError回避のため 'spawn' を明示:
 #   Streamlit でリロードされる度に「すでに設定済み」という警告が出る可能性があります。
+#   ただし、WARNINGが出るだけで動作は大きな問題が起きにくいことも多いです。
 if __name__ == "__main__":
     multiprocessing.set_start_method('spawn', force=True)
 
 
-st.title("エスペラント文を漢字置換したり、HTML形式の訳ルビを振ったりする")
+st.title("エスペラント文を漢字置換したり、HTML形式の訳ルビを振ったりする (拡張版)")
 
 # ==========================================================
 # 1) JSONファイル (置換ルール) をロードする
@@ -105,24 +105,56 @@ placeholders_for_localized_replacement: List[str] = import_placeholders(
 )
 
 # ==========================================================
-# 3) 設定パラメータ (UI)
+# 3) 設定パラメータ (UI) - 高度な設定も含む
 # ==========================================================
+st.subheader("高度な設定 (並列処理やテキスト複製回数など)")
 
-# 例: 出力形式など。必要に応じてカスタマイズ。
-format_type = "HTML格式_Ruby文字_大小调整"  # 例: ルビ付きHTML
-num_processes,text_repeat_times = 4, 10
+with st.expander("詳細設定を開く"):
+    use_parallel = st.checkbox("並列処理を使う (テキストが多い場合に高速化)", value=True)
+    num_processes = st.number_input("同時プロセス数 (CPUコア数や環境による)", min_value=1, max_value=32, value=4, step=1)
+    text_repeat_times = st.slider("テキストの複製回数 (テスト用)", min_value=1, max_value=20, value=1)
 
+st.write("---")
 
-# ==========================================================
-# 4) フォーム: ユーザー入力
-# ==========================================================
+# 例: 出力形式など。必要に応じて追加カスタマイズ
+format_type = st.selectbox("出力形式 (ルビなどの設定)", [
+    "HTML格式_Ruby文字_大小调整",
+    "HTML格式_Ruby文字_大小调整_汉字替换",
+    "HTML格式",
+    "HTML格式_汉字替换",
+    "括弧(号)格式",
+    "括弧(号)格式_汉字替换",
+    "替换后文字列のみ(仅)保留(简单替换)",
+])
 
 # フォームの外で、変数 processed_text を初期化
 processed_text = ""
 
-with st.form(key='profile_form'):
-    letter_type = st.radio('出力文字形式', ('上付き文字', 'x 形式', '^ 形式'))
-    text0 = st.text_area("エスペラントの文章を入力してください", height=150)
+# ==========================================================
+# 4) 入力テキストのソースを選択 (アップロード or テキストエリア)
+# ==========================================================
+st.subheader("入力テキストのソース")
+
+source_option = st.radio("入力テキストをどうしますか？", ("手動入力", "ファイルアップロード"))
+
+uploaded_text = ""
+if source_option == "ファイルアップロード":
+    text_file = st.file_uploader("テキストファイルをアップロード (UTF-8)", type=["txt", "csv", "md"])
+    if text_file is not None:
+        uploaded_text = text_file.read().decode("utf-8", errors="replace")
+        st.info("ファイルを読み込みました。")
+    else:
+        st.warning("テキストファイルがアップロードされていません。手動入力に切り替えるかファイルをアップロードしてください。")
+
+# Streamlit フォーム
+with st.form(key='text_input_form'):
+    if source_option == "手動入力":
+        text0 = st.text_area("エスペラントの文章を入力してください", height=150)
+    else:
+        # アップロード済みテキストを使用
+        text0 = st.text_area("エスペラントの文章(ファイル読み込み済み)", value=uploaded_text, height=150)
+
+    letter_type = st.radio('出力文字形式', ('上付き文字', 'x 形式', '^形式'))
 
     submit_btn = st.form_submit_button('送信')
     cancel_btn = st.form_submit_button('キャンセル')
@@ -131,133 +163,150 @@ with st.form(key='profile_form'):
         # テキストを複製して並列化効果をテスト
         repeated_text = text0 * text_repeat_times
 
-        # 並列処理を呼び出し
-        processed_text = parallel_process(
-            text=repeated_text,
-            num_processes=num_processes,
-            placeholders_for_skipping_replacements=placeholders_for_skipping_replacements,
-            replacements_list_for_localized_string=replacements_list_for_localized_string,
-            placeholders_for_localized_replacement=placeholders_for_localized_replacement,
-            replacements_final_list=replacements_final_list,
-            replacements_list_for_2char=replacements_list_for_2char,
-            format_type=format_type
-        )
-                    
+        if use_parallel:
+            # 並列処理を呼び出し
+            processed_text = parallel_process(
+                text=repeated_text,
+                num_processes=num_processes,
+                placeholders_for_skipping_replacements=placeholders_for_skipping_replacements,
+                replacements_list_for_localized_string=replacements_list_for_localized_string,
+                placeholders_for_localized_replacement=placeholders_for_localized_replacement,
+                replacements_final_list=replacements_final_list,
+                replacements_list_for_2char=replacements_list_for_2char,
+                format_type=format_type
+            )
+        else:
+            # シングルスレッドで直接処理
+            processed_text = orchestrate_comprehensive_esperanto_text_replacement(
+                text=repeated_text,
+                placeholders_for_skipping_replacements=placeholders_for_skipping_replacements,
+                replacements_list_for_localized_string=replacements_list_for_localized_string,
+                placeholders_for_localized_replacement=placeholders_for_localized_replacement,
+                replacements_final_list=replacements_final_list,
+                replacements_list_for_2char=replacements_list_for_2char,
+                format_type=format_type
+            )
+
+        # letter_typeに応じて再変換
+        if letter_type == '上付き文字':
+            # 例: x形式→字上符 などさらに統一したい場合
+            processed_text = replace_esperanto_chars(processed_text, x_to_circumflex)
+            processed_text = replace_esperanto_chars(processed_text, hat_to_circumflex)
+        elif letter_type == '^形式':
+            processed_text = replace_esperanto_chars(processed_text, x_to_hat)
+            processed_text = replace_esperanto_chars(processed_text, circumflex_to_hat)
+
+        # HTMLの見た目をさらに整形 (format_type 依存)
         if format_type in ('HTML格式_Ruby文字_大小调整','HTML格式_Ruby文字_大小调整_汉字替换'):
             # html形式におけるルビサイズの変更形式
-            ruby_style_head="""<!DOCTYPE html>
-        <html lang="ja">
-        <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>ほとんどの環境で動作するルビ表示</title>
-        <style>
+            ruby_style_head = """<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ほとんどの環境で動作するルビ表示</title>
+<style>
 
-            :root {
-            --ruby-color: blue;
-            --ruby-font-size: 50%;
-            }
+    :root {
+    --ruby-color: blue;
+    --ruby-font-size: 50%;
+    }
 
-            .text-S_S { font-size: 12px; }
-            .text-M_M {
-            font-size: 16px; 
-            font-family: Arial, sans-serif;
-            line-height: 1.6 !important; 
-            display: block; /* ブロック要素として扱う */
-            position: relative;
-            }
-            .text-L_L { font-size: 20px; }
-            .text-X_X { font-size: 24px; }
+    .text-S_S { font-size: 12px; }
+    .text-M_M {
+    font-size: 16px; 
+    font-family: Arial, sans-serif;
+    line-height: 1.6 !important; 
+    display: block; /* ブロック要素として扱う */
+    position: relative;
+    }
+    .text-L_L { font-size: 20px; }
+    .text-X_X { font-size: 24px; }
 
-            /* ▼ ルビ（フレックスでルビを上に表示） */
-            ruby {
-            display: inline-flex;
-            flex-direction: column;
-            align-items: center;
-            vertical-align: top !important;
-            line-height: 1.2 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            }
+    /* ▼ ルビ（フレックスでルビを上に表示） */
+    ruby {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    vertical-align: top !important;
+    line-height: 1.2 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    }
 
-            /* ▼ ルビサイズクラス（例） */
-            .ruby-XXXS_S { --ruby-font-size: 30%; }
-            .ruby-XXS_S { --ruby-font-size: 30%; }
-            .ruby-XS_S  { --ruby-font-size: 30%; }
-            .ruby-S_S   { --ruby-font-size: 40%; }
-            .ruby-M_M   { --ruby-font-size: 50%; }
-            .ruby-L_L   { --ruby-font-size: 60%; }
-            .ruby-XL_L  { --ruby-font-size: 70%; }
-            .ruby-XXL_L { --ruby-font-size: 80%; }
+    /* ▼ ルビサイズクラス（例） */
+    .ruby-XXXS_S { --ruby-font-size: 30%; }
+    .ruby-XXS_S { --ruby-font-size: 30%; }
+    .ruby-XS_S  { --ruby-font-size: 30%; }
+    .ruby-S_S   { --ruby-font-size: 40%; }
+    .ruby-M_M   { --ruby-font-size: 50%; }
+    .ruby-L_L   { --ruby-font-size: 60%; }
+    .ruby-XL_L  { --ruby-font-size: 70%; }
+    .ruby-XXL_L { --ruby-font-size: 80%; }
 
-            /* ▼ 追加マイナス余白（ルビサイズ別に上書き） */
-            rt {
-            display: block !important;
-            font-size: var(--ruby-font-size);
-            color: var(--ruby-color);
-            line-height: 1.05;/*ルビを改行するケースにおけるルビの行間*/
-            text-align: center;
-            /* margin-top: 0.2em !important;   
-            transform: translateY(0.4em) !important; */
-            }
-            rt.ruby-XXXS_S {
-            margin-top: -0em !important;/*結局ここは0が一番良かった。 */
-            transform: translateY(-6.6em) !important;/* ルビの高さ位置はここで調節する。 */
-            }    
-            rt.ruby-XXS_S {
-            margin-top: -0em !important;/*結局ここは0が一番良かった。 */
-            transform: translateY(-5.6em) !important;/* ルビの高さ位置はここで調節する。 */
-            }
-            rt.ruby-XS_S {
-            transform: translateY(-4.6em) !important;
-            }
-            rt.ruby-S_S {
-            transform: translateY(-3.7em) !important;
-            }
-            rt.ruby-M_M {
-            transform: translateY(-3.1em) !important;
-            }
-            rt.ruby-L_L {
-            transform: translateY(-2.8em) !important;
-            }
-            rt.ruby-XL_L {
-            transform: translateY(-2.5em) !important;
-            }
-            rt.ruby-XXL_L {
-            transform: translateY(-2.3em) !important;
-            }
+    /* ▼ 追加マイナス余白（ルビサイズ別に上書き） */
+    rt {
+    display: block !important;
+    font-size: var(--ruby-font-size);
+    color: var(--ruby-color);
+    line-height: 1.05;/*ルビを改行するケースにおけるルビの行間*/
+    text-align: center;
+    }
+    rt.ruby-XXXS_S {
+    margin-top: -0em !important;
+    transform: translateY(-6.6em) !important;
+    }    
+    rt.ruby-XXS_S {
+    margin-top: -0em !important;
+    transform: translateY(-5.6em) !important;
+    }
+    rt.ruby-XS_S {
+    transform: translateY(-4.6em) !important;
+    }
+    rt.ruby-S_S {
+    transform: translateY(-3.7em) !important;
+    }
+    rt.ruby-M_M {
+    transform: translateY(-3.1em) !important;
+    }
+    rt.ruby-L_L {
+    transform: translateY(-2.8em) !important;
+    }
+    rt.ruby-XL_L {
+    transform: translateY(-2.5em) !important;
+    }
+    rt.ruby-XXL_L {
+    transform: translateY(-2.3em) !important;
+    }
 
-        </style>
-        </head>
-        <body>
-        <p class="text-M_M">
-        """
-            ruby_style_tail = """  </p>
-
-        </body>
-        </html>"""
-
+</style>
+</head>
+<body>
+<p class="text-M_M">
+"""
+            ruby_style_tail = """</p>
+</body>
+</html>"""
 
         elif format_type in ('HTML格式','HTML格式_汉字替换'):
             # ルビのスタイルは最小限
             ruby_style_head = """<style>
-        ruby rt {
-        color: blue;
-        }
-        </style>
-        """
-            ruby_style_tail="<br>"
+ruby rt {
+    color: blue;
+}
+</style>
+"""
+            ruby_style_tail = "<br>"
         else:
-            ruby_style_head=""
-            ruby_style_tail=""
+            ruby_style_head = ""
+            ruby_style_tail = ""
 
-        processed_text = ruby_style_head+processed_text+ruby_style_tail
+        processed_text = ruby_style_head + processed_text + ruby_style_tail
+
 
 # =========================================
 # フォームを出た後の処理 (ダウンロードボタン 等)
 # =========================================
-
-# フォーム外なら、st.download_button が使用可能
 if processed_text:
     # 結果プレビュー
     st.text_area("文字列置換後のテキスト(プレビュー)", processed_text, height=300)
@@ -272,5 +321,6 @@ if processed_text:
     )
 
 # フッター的な表示
+st.write("---")
 st.title("アプリのGitHubリポジトリ")
 st.markdown("https://github.com/Takatakatake/Esperanto-Kanji-Converter-and-Ruby-Annotation-Tool-")
