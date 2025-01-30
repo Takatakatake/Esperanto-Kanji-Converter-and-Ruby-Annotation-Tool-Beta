@@ -20,6 +20,8 @@ from esp_replacement_json_make_module import (
     output_format,
     import_placeholders,
     capitalize_ruby_and_rt,
+    process_chunk_for_pre_replacements,
+    parallel_build_pre_replacements_dict
 )
 
 # 事前に作成した Unicode_BMP全范围文字幅(宽)_Arial16.json ファイルを読み込み
@@ -354,6 +356,9 @@ if st.button("置換リストを作成する"):
         # ループ終了、進捗を100%にして完了表示
         progress_bar.progress(100)
         progress_text.write("一番時間がかかる処理が100% 完了しました。(あと3~4秒かかります。)")
+
+
+        
 
         keys_to_remove = ['domen', 'teren','posten']# 後でdomen/o,domen/a,domen/e等を追加する。　→確認済み(24/12)
         for key in keys_to_remove:
