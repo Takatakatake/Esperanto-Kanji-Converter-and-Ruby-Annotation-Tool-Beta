@@ -324,17 +324,27 @@ def parallel_process(text: str, num_processes: int ,
     """
     与えられた text を行単位で分割し、'process_segment' をマルチプロセスで並列実行した結果を結合。
     """
+    if num_processes <= 1:
+        # ここで「シングルコアで orche～ を直呼び」する
+        return orchestrate_comprehensive_esperanto_text_replacement(
+            text,
+            placeholders_for_skipping_replacements,
+            replacements_list_for_localized_string,
+            placeholders_for_localized_replacement,
+            replacements_final_list,
+            replacements_list_for_2char,
+            format_type
+        )
+    
     lines = text.split('\n')
     num_lines = len(lines)
-    if num_processes < 1:
-        num_processes = 1
 
     # 行数が 0または1 の場合は単純に処理して返す (エラー回避の安全策)
     # （text.split('\n')で空でも [""] になるため num_lines=1 になるケースが多いです）
     if num_lines <= 1:
         # 並列化の意味がほぼないので、そのまま処理
-        return process_segment(
-            lines, 
+        return orchestrate_comprehensive_esperanto_text_replacement(
+            text,
             placeholders_for_skipping_replacements,
             replacements_list_for_localized_string,
             placeholders_for_localized_replacement,
