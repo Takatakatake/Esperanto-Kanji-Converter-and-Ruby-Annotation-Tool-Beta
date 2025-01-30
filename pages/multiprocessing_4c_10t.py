@@ -197,7 +197,6 @@ def orchestrate_comprehensive_esperanto_text_replacement(
 PERCENT_PATTERN = re.compile(r'%(.{1,50}?)%')
 def find_strings_in_text(text: str) -> List[str]:
     # 正規表現パターンを定義
-    PERCENT_PATTERN = re.compile(r'%(.{1,50}?)%')# re.DOTALLで、任意の文字列に"改行"も含むようにできる。(今はしない。)
     matches = []
     used_indices = set()
 
@@ -229,7 +228,6 @@ def create_replacements_list_for_intact_parts(text: str, placeholders: List[str]
 AT_PATTERN = re.compile(r'@(.{1,18}?)@')
 def find_strings_in_text_for_localized_replacement(text: str) -> List[str]:
     # 正規表現パターンを定義
-    AT_PATTERN = re.compile(r'@(.{1,18}?)@')# re.DOTALLで、任意の文字列に"改行"も含むようにできる。(今はしない。)
     matches = []
     used_indices = set()
 

@@ -13,7 +13,7 @@ import multiprocessing
 # ★★★ ここが肝心 ★★★
 #   同一フォルダにある esp_mod.py から、
 #   全ての関数・辞書をまとめてインポートする例
-from esp_mod_chatgpt2 import (
+from esp_text_replace_modules import (
     x_to_circumflex,
     circumflex_to_x,
     x_to_hat,
@@ -26,10 +26,11 @@ from esp_mod_chatgpt2 import (
     unify_halfwidth_spaces,
     wrap_text_with_ruby,
     safe_replace,
+    import_placeholders,
 
-    find_strings_in_text,
+    find_percent_enclosed_strings_for_skipping_replacement,
     create_replacements_list_for_intact_parts,
-    find_strings_in_text_for_localized_replacement,
+    find_at_enclosed_strings_for_localized_replacement,
     create_replacements_list_for_localized_replacement,
 
     orchestrate_comprehensive_esperanto_text_replacement,
@@ -92,14 +93,6 @@ else:
 # ==========================================================
 # 2) placeholders (占位符) の読み込み
 # ==========================================================
-
-def import_placeholders(filename: str) -> List[str]:
-    """
-    テキストファイルからplaceholder文字列を読み込み、リストにして返す。
-    1行につき1つのplaceholderが入っている想定。
-    """
-    with open(filename, 'r', encoding='utf-8') as file:
-        return [line.strip() for line in file if line.strip()]
 
 # '%...%' のスキップ部分
 placeholders_for_skipping_replacements: List[str] = import_placeholders(
