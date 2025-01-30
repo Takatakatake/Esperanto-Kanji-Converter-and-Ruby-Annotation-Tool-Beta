@@ -52,7 +52,7 @@ replacements_list_for_localized_string: List[Tuple[str, str, str]] = []
 replacements_list_for_2char: List[Tuple[str, str, str]] = []
 
 if selected_option == "デフォルトを使用する":
-    default_json_path = "./Appの运行に使用する各类文件/最终的な替换用リスト(列表)(合并3个JSON文件).json"
+    default_json_path = "./Appの运行に使用する各类文件/最终的な替换用リスト(列表)(合并3个JSON文件)_2.json"
     try:
         with open(default_json_path, 'r', encoding='utf-8') as f:
             combined_data = json.load(f)
@@ -97,14 +97,14 @@ placeholders_for_localized_replacement: List[str] = import_placeholders(
 st.subheader("高度な設定 (並列処理やテキスト複製回数など)")
 with st.expander("詳細設定を開く"):
     use_parallel = st.checkbox("並列処理を使う (テキストが多い場合に高速化)", value=False)
-    num_processes = st.number_input("同時プロセス数 (CPUコア数や環境による)", min_value=1, max_value=6, value=4, step=1)
+    num_processes = st.number_input("同時プロセス数 (CPUコア数や環境による)", min_value=1, max_value=8, value=4, step=1)
     text_repeat_times = st.slider("テキストの複製回数 (テスト用)", min_value=1, max_value=10, value=1)
 
 st.write("---")
 
 # 例: 出力形式など。必要に応じて追加カスタマイズ
 format_type = st.selectbox(
-    "出力形式を選択(置換用のJSONファイルを作成したときと同じ形式を選択):",
+    "出力形式 (ルビなどの設定)",
     [
         "HTML格式_Ruby文字_大小调整",
         "HTML格式_Ruby文字_大小调整_汉字替换",
