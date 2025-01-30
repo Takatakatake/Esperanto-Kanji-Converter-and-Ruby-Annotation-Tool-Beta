@@ -91,11 +91,10 @@ placeholders_for_localized_replacement: List[str] = import_placeholders(
 )
 
 # 3) 設定パラメータ (UI) - 高度な設定
-st.subheader("高度な設定 (並列処理やテキスト複製回数など)")
+st.subheader("高度な設定 (並列処理)")
 with st.expander("詳細設定を開く"):
     use_parallel = st.checkbox("並列処理を使う (テキストが多い場合に高速化)", value=False)
     num_processes = st.number_input("同時プロセス数 (CPUコア数や環境による)", min_value=1, max_value=6, value=4, step=1)
-    text_repeat_times = st.slider("テキストの複製回数 (テスト用)", min_value=1, max_value=10, value=1)
 
 st.write("---")
 
@@ -165,11 +164,9 @@ with st.form(key='text_input_form'):
         # ユーザーが送信ボタンを押した時点で、text0 の値を session_state に保存
         st.session_state["text0_value"] = text0
 
-        repeated_text = text0 * text_repeat_times
-
         if use_parallel:
             processed_text = parallel_process(
-                text=repeated_text,
+                text=text0,
                 num_processes=num_processes,
                 placeholders_for_skipping_replacements=placeholders_for_skipping_replacements,
                 replacements_list_for_localized_string=replacements_list_for_localized_string,
@@ -180,7 +177,7 @@ with st.form(key='text_input_form'):
             )
         else:
             processed_text = orchestrate_comprehensive_esperanto_text_replacement(
-                text=repeated_text,
+                text=text0,
                 placeholders_for_skipping_replacements=placeholders_for_skipping_replacements,
                 replacements_list_for_localized_string=replacements_list_for_localized_string,
                 placeholders_for_localized_replacement=placeholders_for_localized_replacement,

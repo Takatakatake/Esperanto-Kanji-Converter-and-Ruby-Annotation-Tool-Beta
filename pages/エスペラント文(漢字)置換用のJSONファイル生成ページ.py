@@ -623,8 +623,8 @@ if st.button("置換リストを作成する"):
                     esperanto_Word_before_replacement = i[0].replace('/', '')
                     if i[1]=="dflt":
                         replacement_priority_by_length=len(esperanto_Word_before_replacement)*10000
-                    else:
-                        replacement_priority_by_length=i[1]
+                    elif isinstance(i[1], int) or (isinstance(i[1], str) and i[1].isdigit()):  # 整数または整数に変換可能な文字列
+                        replacement_priority_by_length = int(i[1])  # 文字列の場合は整数に変換
                         
                     Replaced_String = safe_replace(i[0],temporary_replacements_list_final).replace("</rt></ruby>","%%%").replace('/', '').replace("%%%","</rt></ruby>")
                     if "ne" in i[2]:
@@ -668,8 +668,8 @@ if st.button("置換リストを作成する"):
                         esperanto_Word_before_replacement = i[0].replace('/', '')
                         if i[1]=="dflt":
                             replacement_priority_by_length=len(esperanto_Word_before_replacement)*10000
-                        else:
-                            replacement_priority_by_length=i[1]
+                        elif isinstance(i[1], int) or (isinstance(i[1], str) and i[1].isdigit()):  # 整数または整数に変換可能な文字列
+                            replacement_priority_by_length = int(i[1])  # 文字列の場合は整数に変換
                         if "ne" in i[2]:
                             pre_replacements_dict_3[esperanto_Word_before_replacement]=[Replaced_String, replacement_priority_by_length]
                             i[2].remove("ne")#　これがあるので、再実行には要注意!(おそらく問題ない)
