@@ -12,21 +12,29 @@ import multiprocessing
 
 from esp_text_replacement_module import (
     x_to_circumflex,
+    circumflex_to_x,
     x_to_hat,
+    hat_to_x,
     hat_to_circumflex,
     circumflex_to_hat,
 
     replace_esperanto_chars,
+    convert_to_circumflex,
+    unify_halfwidth_spaces,
+    wrap_text_with_ruby,
     safe_replace,
     import_placeholders,
 
+    find_percent_enclosed_strings_for_skipping_replacement,
+    create_replacements_list_for_intact_parts,
+    find_at_enclosed_strings_for_localized_replacement,
+    create_replacements_list_for_localized_replacement,
+
     orchestrate_comprehensive_esperanto_text_replacement,
+    process_segment,
     parallel_process
 )
 
-# ▼ Windows/Macでの PicklingError回避のため 'spawn' を明示:
-if __name__ == "__main__":
-    multiprocessing.set_start_method('spawn', force=True)
 
 st.title("エスペラント文を漢字置換したり、HTML形式の訳ルビを振ったりする (拡張版)")
 
