@@ -74,49 +74,49 @@ with st.expander("サンプルファイル一覧(ダウンロード用)"):
     st.write("#### サンプルファイル一覧")
     # 例: 日本語訳ルビリスト
     st.markdown("""
-    **サンプルCSV１(日本語訳ルビリスト)**  
+    **サンプルCSV１(エスペラント語根-日本語訳ルビ対応リスト)**  
     エスペラント語根と日本語訳を 1 行ずつ対応づけたCSVファイルです。  
     この形式に合わせて CSV を作成し、アップロードすることで置換用のJSONファイルが生成されます。
     """)
     # サンプルファイルのパス
-    file_path0 = './Appの运行に使用する各类文件/日本語訳ルビリスト_20250112_字上符形式.csv'
+    file_path0 = './Appの运行に使用する各类文件/エスペラント語根-日本語訳ルビ対応リスト.csv'
     # ファイルを読み込む
     with open(file_path0, "rb") as file:
         btn = st.download_button(
-                label="サンプルCSV１(日本語訳ルビリスト)ダウンロード",
+                label="サンプルCSV１(エスペラント語根-日本語訳ルビ対応リスト)ダウンロード",
                 data=file,
-                file_name="エスペラント語根日本語訳ルビリスト.csv",
+                file_name="エスペラント語根-日本語訳ルビ対応リスト.csv",
                 mime="text/csv"
             )
 
     st.markdown("""
-    **サンプルCSV２(エスペラント語根漢字対応リスト＿知乎上のエスペランチスト,Mingeo氏による漢字化案)**  
+    **サンプルCSV２(エスペラント語根-漢字対応リスト　知乎上のエスペランチスト,Mingeo氏による漢字化案)**  
     こちらはエスペラント語根と漢字を対応づけたCSVファイルです。
     """)
     # サンプルファイルのパス
-    file_path0 = './Appの运行に使用する各类文件/Mingeo_san_hanziization.csv'
+    file_path0 = './Appの运行に使用する各类文件/Mingeo先生版 世界语词根-汉字对应列表.csv'
     # ファイルを読み込む
     with open(file_path0, "rb") as file:
         btn = st.download_button(
-                label="サンプルCSV２(エスペラント語根漢字対応リスト＿Mingeo氏)ダウンロード",
+                label="サンプルCSV２(エスペラント語根-漢字対応リスト＿Mingeo氏)ダウンロード",
                 data=file,
-                file_name="エスペラント語根漢字対応リスト＿Mingeo氏.csv",
+                file_name="エスペラント語根-漢字対応リスト＿Mingeo氏.csv",
                 mime="text/csv"
             )
 
 
     st.markdown("""
-    **サンプルCSV３(エスペラント語根漢字対応リスト)**  
+    **サンプルCSV３(エスペラント語根-漢字対応リスト)**  
     こちらはエスペラント語根と漢字を対応づけたCSVファイルです。
     """)
     # サンプルファイルのパス
-    file_path0 = './Appの运行に使用する各类文件/エスペラント語根漢字対応リスト.csv'
+    file_path0 = './Appの运行に使用する各类文件/世界语词根-汉字对应列表.csv'
     # ファイルを読み込む
     with open(file_path0, "rb") as file:
         btn = st.download_button(
-                label="サンプルCSV３(エスペラント語根漢字対応リスト)ダウンロード",
+                label="サンプルCSV３(エスペラント語根-漢字対応リスト)ダウンロード",
                 data=file,
-                file_name="エスペラント語根漢字対応リスト.csv",
+                file_name="エスペラント語根-漢字対応リスト.csv",
                 mime="text/csv"
             )
 
@@ -156,17 +156,17 @@ with st.expander("サンプルファイル一覧(ダウンロード用)"):
 
     # サンプルエクセルファイルのダウンロードボタン
     st.markdown("""
-    ***サンプルExcel１(エスペラント語根日本語訳ルビリスト)**  
+    ***サンプルExcel１(エスペラント語根-日本語訳ルビ対応リスト)**  
     **用途**: 翻訳ルビを追加するエスペラント語根をカスタムしたい場合、  
     基本的に上記のCSVファイルを編集することになりますが、その際に役立つ
-    エスペラント語根の習得難易度(エスペラント日本語基本辞書を基にした)  
+    エスペラント語根の習得レベル(エスペラント日本語基本辞書を基にした)  
     を併記したエクセルファイルです。
     """)
-    with open('./Appの运行に使用する各类文件/エスペラント語根日本語訳ルビリスト.xlsx', "rb") as file:
+    with open('./Appの运行に使用する各类文件/エスペラント語根-日本語訳ルビ対応リスト(習得レベル付き).xlsx', "rb") as file:
         st.download_button(
-            label="サンプルExcel１(エスペラント語根日本語訳ルビリスト)ダウンロード",
+            label="サンプルExcel１(エスペラント語根-日本語訳ルビ対応リスト(習得レベル付き))ダウンロード",
             data=file,
-            file_name="エスペラント語根日本語訳ルビリスト.xlsx",
+            file_name="エスペラント語根-日本語訳ルビ対応リスト(習得レベル付き).xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
@@ -216,7 +216,7 @@ st.markdown("""
 """)
 csv_choice = st.radio("CSVファイルをどうしますか？", ("アップロードする", "デフォルトを使用する"))
 
-csv_path_default = "./Appの运行に使用する各类文件/日本語訳ルビリスト_20250112_字上符形式.csv" 
+csv_path_default = "./Appの运行に使用する各类文件/エスペラント語根-日本語訳ルビ対応リスト.csv" 
     # ↑デフォルトとして使いたいCSVファイルのパス(例)
 
 # CSV_data_imported の初期化
