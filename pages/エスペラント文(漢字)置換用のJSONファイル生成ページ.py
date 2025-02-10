@@ -441,14 +441,13 @@ if st.button("置換用JSONファイルを作成する"):
             if i==j[0]:# 置換しない単語  # ⇓の右辺では、HTMLのルビ形式に含まれる'/'を避けながら'置換後の文字列'から"/"を抜く処理を行っている。HTML形式でなくてもしても大丈夫な処理なので、出力形式が'括弧(号)格式'や'替换后文字列のみ(仅)保留(简单替换)'であっても心配無用。
                 pre_replacements_dict_2[i.replace('/', '')]=[j[0].replace("</rt></ruby>","%%%").replace('/', '').replace("%%%","</rt></ruby>"),j[1],len(i.replace('/', ''))*10000-3000]# 置換しない単語は優先順位を下げる
             else:
-                j[0] = remove_redundant_ruby_if_identical(j[0])# 202502追加
                 pre_replacements_dict_2[i.replace('/', '')]=[j[0].replace("</rt></ruby>","%%%").replace('/', '').replace("%%%","</rt></ruby>"),j[1],len(i.replace('/', ''))*10000]
 
 
 
         verb_suffix_2l_2={}
         for original_verb_suffix,replaced_verb_suffix in verb_suffix_2l.items():
-            verb_suffix_2l_2[original_verb_suffix]=remove_redundant_ruby_if_identical(safe_replace(replaced_verb_suffix, temporary_replacements_list_final))# 202502追加(remove_redundant_ruby_if_identical)
+            verb_suffix_2l_2[original_verb_suffix]=safe_replace(replaced_verb_suffix, temporary_replacements_list_final)# 202502追加(remove_redundant_ruby_if_identical)
 
 
         # 一番の工夫ポイント(如何にして置換の優先順位を定め、置換精度を向上させるか。)
@@ -647,6 +646,7 @@ if st.button("置換用JSONファイルを作成する"):
 
         # 外部ファイルを読み込む形式に変えた。行われている処理は全く同じ。
         # ★一番最初だけチェックして、説明用の項目を削除する。
+        # ★一番最初だけチェックして、説明用の項目を削除する
         if len(custom_stemming_setting_list) > 0:
             if len(custom_stemming_setting_list[0]) != 3:
                 # 最初のリストの要素の数が3つでなければ、これを説明用の項目であると判断して削除する。
@@ -683,7 +683,7 @@ if st.button("置換用JSONファイルを作成する"):
                     elif isinstance(i[1], int) or (isinstance(i[1], str) and i[1].isdigit()):  # 整数または整数に変換可能な文字列
                         replacement_priority_by_length = int(i[1])  # 文字列の場合は整数に変換
                         
-                    Replaced_String = remove_redundant_ruby_if_identical(safe_replace(i[0],temporary_replacements_list_final).replace("</rt></ruby>","%%%").replace('/', '').replace("%%%","</rt></ruby>"))# 202502追加(remove_redundant_ruby_if_identical)
+                    Replaced_String = safe_replace(i[0],temporary_replacements_list_final).replace("</rt></ruby>","%%%").replace('/', '').replace("%%%","</rt></ruby>")
                     if "ne" in i[2]:
                         pre_replacements_dict_3[esperanto_Word_before_replacement]=[Replaced_String, replacement_priority_by_length]
                         i[2].remove("ne")#　これがあるので、再実行には要注意!(おそらく問題ない)
@@ -704,7 +704,6 @@ if st.button("置換用JSONファイルを作成する"):
                         pre_replacements_dict_3[esperanto_Word_before_replacement]=[Replaced_String, replacement_priority_by_length]
                 except:
                     continue
-
 
 
         # ★一番最初だけチェックして、説明用の項目を削除する
@@ -761,7 +760,7 @@ if st.button("置換用JSONファイルを作成する"):
         pre_replacements_list_3=[]
         for kk in range(len(pre_replacements_list_2)):
             if len(pre_replacements_list_2[kk][0])>=3:# 3文字以上でいいのではないか(202412)  la対策として考案された。
-                pre_replacements_list_3.append([pre_replacements_list_2[kk][0],pre_replacements_list_2[kk][1],imported_placeholders_for_global_replacement[kk]])
+                pre_replacements_list_3.append([pre_replacements_list_2[kk][0],remove_redundant_ruby_if_identical(pre_replacements_list_2[kk][1]),imported_placeholders_for_global_replacement[kk]])# 202502追加(remove_redundant_ruby_if_identical) '大文字'、'小文字'、'文頭だけ大文字'の3パターンに増えてしまう直前に発動。
 
         # '大文字'、'小文字'、'文頭だけ大文字'の3パターンに対応。
         pre_replacements_list_4=[]
